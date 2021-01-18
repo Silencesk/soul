@@ -26,7 +26,8 @@
 
     <dubbo:application name="test-dubbo-service"/>
 
-    <dubbo:registry address="zookeeper://localhost:2181"/>
+<!--    <dubbo:registry address="zookeeper://localhost:2181"/>-->
+    <dubbo:registry address="N/A"/>
 
     <dubbo:protocol name="dubbo" port="20888"/>
 

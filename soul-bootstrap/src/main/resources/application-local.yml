@@ -67,7 +67,6 @@ soul :
 #  instance:
 #    prefer-ip-address: true
 
-
 logging:
     level:
         root: info
