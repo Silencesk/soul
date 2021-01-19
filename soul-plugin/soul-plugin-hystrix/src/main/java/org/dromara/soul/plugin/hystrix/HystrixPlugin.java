@@ -52,6 +52,7 @@ public class HystrixPlugin extends AbstractSoulPlugin {
     protected Mono<Void> doExecute(final ServerWebExchange exchange, final SoulPluginChain chain, final SelectorData selector, final RuleData rule) {
         final SoulContext soulContext = exchange.getAttribute(Constants.CONTEXT);
         assert soulContext != null;
+        // 构造hystrix处理
         final HystrixHandle hystrixHandle = GsonUtils.getInstance().fromJson(rule.getHandle(), HystrixHandle.class);
         if (StringUtils.isBlank(hystrixHandle.getGroupKey())) {
             hystrixHandle.setGroupKey(Objects.requireNonNull(soulContext).getModule());
@@ -59,7 +60,9 @@ public class HystrixPlugin extends AbstractSoulPlugin {
         if (StringUtils.isBlank(hystrixHandle.getCommandKey())) {
             hystrixHandle.setCommandKey(Objects.requireNonNull(soulContext).getMethod());
         }
+        // 生成hystrix command
         Command command = fetchCommand(hystrixHandle, exchange, chain);
+        // 这里就木有看懂了，需额外学习RxJava
         return Mono.create(s -> {
             Subscription sub = command.fetchObservable().subscribe(s::success,
                     s::error, s::success);

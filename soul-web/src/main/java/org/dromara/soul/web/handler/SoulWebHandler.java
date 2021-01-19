@@ -70,6 +70,8 @@ public final class SoulWebHandler implements WebHandler {
     public Mono<Void> handle(@NonNull final ServerWebExchange exchange) {
         MetricsTrackerFacade.getInstance().counterInc(MetricsLabelEnum.REQUEST_TOTAL.getName());
         Optional<HistogramMetricsTrackerDelegate> startTimer = MetricsTrackerFacade.getInstance().histogramStartTimer(MetricsLabelEnum.REQUEST_LATENCY.getName());
+        // 直接将插件列表生成一个插件链DefaultSoulPluginChain，责任链的execute方法会遍历所有插件列表，依次处理
+        // Mono的subscribeOn没看明白？？？【就是讲线程池绑定到Mono请求流程中】；难道是经过Mono的请求，都会提交给这个线程池执行？Mono本身是有默认线程池吧，这里为什么要自用线程池？应该是自行创建的Mono对象
         return new DefaultSoulPluginChain(plugins).execute(exchange).subscribeOn(scheduler)
                 .doOnSuccess(t -> startTimer.ifPresent(time -> MetricsTrackerFacade.getInstance().histogramObserveDuration(time)));
     }
@@ -96,16 +98,22 @@ public final class SoulWebHandler implements WebHandler {
          * @return {@code Mono<Void>} to indicate when request handling is complete
          */
         @Override
+        // 1. 执行方法，遍历插件列表，并调用插件的执行逻辑
+        // 2. 返回Mono对象，能方便的使用Reactive的事件驱动编程的机制
         public Mono<Void> execute(final ServerWebExchange exchange) {
             return Mono.defer(() -> {
                 if (this.index < plugins.size()) {
                     SoulPlugin plugin = plugins.get(this.index++);
+                    // 先判断当前请求是否满足插件处理的逻辑，如果不满足，则跳过不处理；否则进行处理
                     Boolean skip = plugin.skip(exchange);
                     if (skip) {
+                        // 跳过，直接执行下一个插件
                         return this.execute(exchange);
                     }
+                    // 执行当前插件的逻辑
                     return plugin.execute(exchange, this);
                 }
+                // 所有插件执行完毕后，返回空的Mono对象
                 return Mono.empty();
             });
         }

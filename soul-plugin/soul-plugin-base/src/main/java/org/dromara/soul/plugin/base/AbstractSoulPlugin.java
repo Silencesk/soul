@@ -68,21 +68,28 @@ public abstract class AbstractSoulPlugin implements SoulPlugin {
     @Override
     public Mono<Void> execute(final ServerWebExchange exchange, final SoulPluginChain chain) {
         String pluginName = named();
+        // 获取插件的配置数据
         final PluginData pluginData = BaseDataCache.getInstance().obtainPluginData(pluginName);
         if (pluginData != null && pluginData.getEnabled()) {
+            // 获取插件选择器
             final Collection<SelectorData> selectors = BaseDataCache.getInstance().obtainSelectorData(pluginName);
+            // 插件选择器为空的处理
             if (CollectionUtils.isEmpty(selectors)) {
                 return handleSelectorIsNull(pluginName, exchange, chain);
             }
+            // 匹配选择器
             final SelectorData selectorData = matchSelector(exchange, selectors);
             if (Objects.isNull(selectorData)) {
                 return handleSelectorIsNull(pluginName, exchange, chain);
             }
             selectorLog(selectorData, pluginName);
+            // 获取选择器的规则
             final List<RuleData> rules = BaseDataCache.getInstance().obtainRuleData(selectorData.getId());
+            // 规则为空处理
             if (CollectionUtils.isEmpty(rules)) {
                 return handleRuleIsNull(pluginName, exchange, chain);
             }
+            // 匹配规则
             RuleData rule;
             if (selectorData.getType() == SelectorTypeEnum.FULL_FLOW.getCode()) {
                 //get last
@@ -90,12 +97,15 @@ public abstract class AbstractSoulPlugin implements SoulPlugin {
             } else {
                 rule = matchRule(exchange, rules);
             }
+            // 未匹配到规则的处理
             if (Objects.isNull(rule)) {
                 return handleRuleIsNull(pluginName, exchange, chain);
             }
             ruleLog(rule, pluginName);
+            // 将匹配到插件配置数据，传递给插件本身处理自身的业务逻辑
             return doExecute(exchange, chain, selectorData, rule);
         }
+        // 插件数据没有，则直接进入到下一个插件
         return chain.execute(exchange);
     }
 
