@@ -44,6 +44,11 @@ import java.util.concurrent.CopyOnWriteArraySet;
 @ServerEndpoint("/websocket")
 public class WebsocketCollector {
 
+    /**
+     * CopyOnWriteArraySet可理解为HashSet的线程安全版本
+     * 底层通过 CopyOnWriteArrayList 实现
+     * 适用于Set大小通常保持很小，只读操作远多于写操作，需要在遍历期间防止线程间的冲突的场景
+     */
     private static final Set<Session> SESSION_SET = new CopyOnWriteArraySet<>();
 
     private static Session session;
@@ -67,6 +72,10 @@ public class WebsocketCollector {
      */
     @OnMessage
     public void onMessage(final String message, final Session session) {
+        // 收到myself的消息，用于bootstrap初始连接上来的时候，相当于是给admin自己的消息
+        // 该消息会同步所有类型的配置数据，给到连上来的这个bootstrap
+        // 如果有多台bootstrap同时连接上来，又会怎样？onMessage保证了有序性？这里应该存在并发问题
+        // TODO question
         if (message.equals(DataEventTypeEnum.MYSELF.name())) {
             WebsocketCollector.session = session;
             SpringBeanUtils.getInstance().getBean(SyncDataService.class).syncAll(DataEventTypeEnum.MYSELF);
@@ -105,6 +114,7 @@ public class WebsocketCollector {
      */
     public static void send(final String message, final DataEventTypeEnum type) {
         if (StringUtils.isNotBlank(message)) {
+            // 用自身的消息类型Myself代表所有配置类型数据
             if (DataEventTypeEnum.MYSELF == type) {
                 try {
                     session.getBasicRemote().sendText(message);
@@ -113,6 +123,7 @@ public class WebsocketCollector {
                 }
                 return;
             }
+            // 其他消息则遍历所有的websocket请求，依次发送消息；这里有多个session，因soul-admin可能是集群
             for (Session session : SESSION_SET) {
                 try {
                     session.getBasicRemote().sendText(message);

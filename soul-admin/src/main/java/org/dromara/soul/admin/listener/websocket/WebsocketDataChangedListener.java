@@ -42,6 +42,7 @@ public class WebsocketDataChangedListener implements DataChangedListener {
     public void onPluginChanged(final List<PluginData> pluginDataList, final DataEventTypeEnum eventType) {
         WebsocketData<PluginData> websocketData =
                 new WebsocketData<>(ConfigGroupEnum.PLUGIN.name(), eventType.name(), pluginDataList);
+        // 通过websocket收集器发送变更消息
         WebsocketCollector.send(GsonUtils.getInstance().toJson(websocketData), eventType);
     }
 
