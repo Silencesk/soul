@@ -60,8 +60,14 @@ public class WebsocketSyncDataService implements SyncDataService, AutoCloseable 
                                     final PluginDataSubscriber pluginDataSubscriber,
                                     final List<MetaDataSubscriber> metaDataSubscribers,
                                     final List<AuthDataSubscriber> authDataSubscribers) {
+        // 获取soul-admin的地址，多个admin则以,分割
         String[] urls = StringUtils.split(websocketConfig.getUrls(), ",");
+        // 采用定时调度的线程池，其核心线程数为admin的地址数，且创建的线程为守护线程
+        // 该线程池是为了保证bootstrap与admin之间的websocket能一直连接。
+        // 因为如果websocket只是在启动的时候建立连接，在运行过程中发生一些异常导致bootstrap与admin之间的连接断开
+        // 那么是有必要去进行重连的，否则只要一断，就失去联系了，不科学
         executor = new ScheduledThreadPoolExecutor(urls.length, SoulThreadFactory.create("websocket-connect", true));
+        // 为每一个admin都生成一个websocketClient，与之进行连接
         for (String url : urls) {
             try {
                 clients.add(new SoulWebsocketClient(new URI(url), Objects.requireNonNull(pluginDataSubscriber), metaDataSubscribers, authDataSubscribers));
@@ -70,6 +76,7 @@ public class WebsocketSyncDataService implements SyncDataService, AutoCloseable 
             }
         }
         try {
+            // webSocketClient启动连接
             for (WebSocketClient client : clients) {
                 boolean success = client.connectBlocking(3000, TimeUnit.MILLISECONDS);
                 if (success) {
@@ -77,8 +84,11 @@ public class WebsocketSyncDataService implements SyncDataService, AutoCloseable 
                 } else {
                     log.error("websocket connection is error.....");
                 }
+                // 与admin之间的websocket定时重连机制
+                // 这里是每隔30s就会去检测websocket连接是否还有效
                 executor.scheduleAtFixedRate(() -> {
                     try {
+                        // 如果client状态为已关闭，则需要重新连接
                         if (client.isClosed()) {
                             boolean reconnectSuccess = client.reconnectBlocking();
                             if (reconnectSuccess) {

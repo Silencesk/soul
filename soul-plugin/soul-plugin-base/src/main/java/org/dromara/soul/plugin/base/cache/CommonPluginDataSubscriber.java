@@ -115,8 +115,17 @@ public class CommonPluginDataSubscriber implements PluginDataSubscriber {
         }
         BaseDataCache.getInstance().cleanRuleDataSelf(ruleDataList);
     }
-    
+
+    /**
+     * 订阅的数据处理逻辑：
+     * 1. 为统一方法，接收多种配置数据，包括Plugin、Selector、Rule
+     * 2. 每种配置数据需要找到对应插件的处理器handler，然后调用对应配置的handle方法
+     * @param classData
+     * @param dataType
+     * @param <T>
+     */
     private <T> void subscribeDataHandler(final T classData, final DataEventTypeEnum dataType) {
+        // 当classData不为空时则执行ifPresent里边的逻辑，这种写法规避NPE
         Optional.ofNullable(classData).ifPresent(data -> {
             if (data instanceof PluginData) {
                 PluginData pluginData = (PluginData) data;

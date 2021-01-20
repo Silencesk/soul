@@ -43,6 +43,14 @@ public class WebsocketDataHandler {
     public WebsocketDataHandler(final PluginDataSubscriber pluginDataSubscriber,
                                 final List<MetaDataSubscriber> metaDataSubscribers,
                                 final List<AuthDataSubscriber> authDataSubscribers) {
+        /**
+         * 对于不同类型的数据，有对应的数据处理器
+         * PLUGIN-PluginDataHandler
+         * SELECTOR-SelectorDataHandler
+         * RULE-RuleDataHandler
+         * APP_AUTH-AuthDataHandler
+         * META_DATA-MetaDataHandler
+         */
         ENUM_MAP.put(ConfigGroupEnum.PLUGIN, new PluginDataHandler(pluginDataSubscriber));
         ENUM_MAP.put(ConfigGroupEnum.SELECTOR, new SelectorDataHandler(pluginDataSubscriber));
         ENUM_MAP.put(ConfigGroupEnum.RULE, new RuleDataHandler(pluginDataSubscriber));
@@ -58,6 +66,7 @@ public class WebsocketDataHandler {
      * @param eventType the event type
      */
     public void executor(final ConfigGroupEnum type, final String json, final String eventType) {
+        // 根据配置类型用相应的处理器来处理
         ENUM_MAP.get(type).handle(json, eventType);
     }
 }

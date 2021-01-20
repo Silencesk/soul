@@ -57,6 +57,8 @@ public final class SoulWebsocketClient extends WebSocketClient {
     
     @Override
     public void onOpen(final ServerHandshake serverHandshake) {
+        // 只有在程序启动打开连接时，才做一次全量同步；
+        // 若运行一段时间后，存在admin下线，也不会触发重新同步，通过alreadySync控制
         if (!alreadySync) {
             send(DataEventTypeEnum.MYSELF.name());
             alreadySync = true;
@@ -65,6 +67,7 @@ public final class SoulWebsocketClient extends WebSocketClient {
     
     @Override
     public void onMessage(final String result) {
+        // 存在消息的时候，即接收到admin发来的消息时
         handleResult(result);
     }
     
@@ -80,10 +83,12 @@ public final class SoulWebsocketClient extends WebSocketClient {
     
     @SuppressWarnings("ALL")
     private void handleResult(final String result) {
+        // admin数据的解析
         WebsocketData websocketData = GsonUtils.getInstance().fromJson(result, WebsocketData.class);
         ConfigGroupEnum groupEnum = ConfigGroupEnum.acquireByName(websocketData.getGroupType());
         String eventType = websocketData.getEventType();
         String json = GsonUtils.getInstance().toJson(websocketData.getData());
+        // admin数据的处理
         websocketDataHandler.executor(groupEnum, json, eventType);
     }
 }
