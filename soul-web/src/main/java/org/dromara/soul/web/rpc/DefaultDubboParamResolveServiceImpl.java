@@ -15,16 +15,21 @@
  * limitations under the License.
  */
 
-package org.dromara.soul.plugin.sync.data.weboscket.config;
+package org.dromara.soul.web.rpc;
 
-import lombok.Data;
+import org.apache.commons.lang3.tuple.Pair;
+import org.dromara.soul.plugin.api.dubbo.DubboParamResolveService;
+import org.dromara.soul.plugin.base.utils.RpcParamUtils;
 
-@Data
-public class WebsocketConfig {
-    
-    /**
-     * if have more soul admin url,please config like this.
-     * 127.0.0.1:8888,127.0.0.1:8889
-     */
-    private String urls;
+/**
+ * The type Default generic param resolve service.
+ *
+ * @author xiaoyu
+ */
+public class DefaultDubboParamResolveServiceImpl implements DubboParamResolveService {
+
+    @Override
+    public Pair<String[], Object[]> buildParameter(final String body, final String parameterTypes) {
+        return RpcParamUtils.buildParameters(body, parameterTypes);
+    }
 }

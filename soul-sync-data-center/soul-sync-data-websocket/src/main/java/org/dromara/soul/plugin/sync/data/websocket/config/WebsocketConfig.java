@@ -15,29 +15,16 @@
  * limitations under the License.
  */
 
-package org.dromara.soul.metrics.prometheus.impl.collector;
+package org.dromara.soul.plugin.sync.data.websocket.config;
 
-import org.junit.Before;
-import org.junit.Test;
+import lombok.Data;
 
-import static org.junit.Assert.assertNotNull;
-
-/**
- * The Test Case For BuildInfoCollector.
- *
- * @author nuo-promise
- **/
-public final class BuildInfoCollectorTest {
-
-    private BuildInfoCollector buildInfoCollector;
-
-    @Before
-    public void setUp() {
-        buildInfoCollector = new BuildInfoCollector();
-    }
-
-    @Test
-    public void testBuildInfoCollector() {
-        assertNotNull(buildInfoCollector.collect());
-    }
+@Data
+public class WebsocketConfig {
+    
+    /**
+     * if have more soul admin url,please config like this.
+     * 127.0.0.1:8888,127.0.0.1:8889
+     */
+    private String urls;
 }

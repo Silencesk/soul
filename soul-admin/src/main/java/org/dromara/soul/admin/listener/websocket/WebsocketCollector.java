@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.dromara.soul.admin.service.SyncDataService;
 import org.dromara.soul.admin.spring.SpringBeanUtils;
+import org.dromara.soul.admin.utils.ThreadLocalUtil;
 import org.dromara.soul.common.enums.DataEventTypeEnum;
 
 import javax.websocket.OnClose;
@@ -51,7 +52,7 @@ public class WebsocketCollector {
      */
     private static final Set<Session> SESSION_SET = new CopyOnWriteArraySet<>();
 
-    private static Session session;
+    private static final String SESSION_KEY = "sessionKey";
 
     /**
      * On open.
@@ -77,8 +78,12 @@ public class WebsocketCollector {
         // 如果有多台bootstrap同时连接上来，又会怎样？onMessage保证了有序性？这里应该存在并发问题
         // TODO question
         if (message.equals(DataEventTypeEnum.MYSELF.name())) {
-            WebsocketCollector.session = session;
-            SpringBeanUtils.getInstance().getBean(SyncDataService.class).syncAll(DataEventTypeEnum.MYSELF);
+            try {
+                ThreadLocalUtil.put(SESSION_KEY, session);
+                SpringBeanUtils.getInstance().getBean(SyncDataService.class).syncAll(DataEventTypeEnum.MYSELF);
+            } finally {
+                ThreadLocalUtil.clear();
+            }
         }
     }
 
@@ -90,7 +95,7 @@ public class WebsocketCollector {
     @OnClose
     public void onClose(final Session session) {
         SESSION_SET.remove(session);
-        WebsocketCollector.session = null;
+        ThreadLocalUtil.clear();
     }
 
     /**
@@ -102,7 +107,7 @@ public class WebsocketCollector {
     @OnError
     public void onError(final Session session, final Throwable error) {
         SESSION_SET.remove(session);
-        WebsocketCollector.session = null;
+        ThreadLocalUtil.clear();
         log.error("websocket collection error: ", error);
     }
 
@@ -117,7 +122,10 @@ public class WebsocketCollector {
             // 用自身的消息类型Myself代表所有配置类型数据
             if (DataEventTypeEnum.MYSELF == type) {
                 try {
-                    session.getBasicRemote().sendText(message);
+                    Session session = (Session) ThreadLocalUtil.get(SESSION_KEY);
+                    if (session != null) {
+                        session.getBasicRemote().sendText(message);
+                    }
                 } catch (IOException e) {
                     log.error("websocket send result is exception: ", e);
                 }
