@@ -29,6 +29,9 @@ import org.dromara.soul.sync.data.api.MetaDataSubscriber;
 @RequiredArgsConstructor
 public class MetaDataHandler extends AbstractDataHandler<MetaData> {
 
+    /**
+     * 注入所有的meta订阅者
+     */
     private final List<MetaDataSubscriber> metaDataSubscribers;
 
     @Override
@@ -39,7 +42,10 @@ public class MetaDataHandler extends AbstractDataHandler<MetaData> {
     @Override
     protected void doRefresh(final List<MetaData> dataList) {
         metaDataSubscribers.forEach(MetaDataSubscriber::refresh);
-        dataList.forEach(metaData -> metaDataSubscribers.forEach(metaDataSubscriber -> metaDataSubscriber.onSubscribe(metaData)));
+        // 没条metaData都会被所有的订阅者处理
+        dataList.forEach(metaData ->
+                metaDataSubscribers.forEach(metaDataSubscriber ->
+                        metaDataSubscriber.onSubscribe(metaData)));
     }
 
     @Override

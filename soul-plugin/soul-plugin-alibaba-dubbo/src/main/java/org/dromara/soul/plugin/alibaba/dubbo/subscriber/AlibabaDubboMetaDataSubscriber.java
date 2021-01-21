@@ -36,6 +36,7 @@ public class AlibabaDubboMetaDataSubscriber implements MetaDataSubscriber {
 
     @Override
     public void onSubscribe(final MetaData metaData) {
+        // 只是把跟dubbo相关的元数据存放到内存中
         if (RpcTypeEnum.DUBBO.getName().equals(metaData.getRpcType())) {
             MetaData exist = META_DATA.get(metaData.getPath());
             if (Objects.isNull(META_DATA.get(metaData.getPath())) || Objects.isNull(ApplicationConfigCache.getInstance().get(metaData.getPath()))) {
