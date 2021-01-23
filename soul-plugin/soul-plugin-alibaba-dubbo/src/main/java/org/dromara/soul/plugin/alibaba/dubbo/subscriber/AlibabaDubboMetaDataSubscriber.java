@@ -18,8 +18,10 @@
 package org.dromara.soul.plugin.alibaba.dubbo.subscriber;
 
 import com.google.common.collect.Maps;
+
 import java.util.Objects;
 import java.util.concurrent.ConcurrentMap;
+
 import org.dromara.soul.common.dto.MetaData;
 import org.dromara.soul.common.enums.RpcTypeEnum;
 import org.dromara.soul.plugin.alibaba.dubbo.cache.ApplicationConfigCache;
@@ -39,16 +41,20 @@ public class AlibabaDubboMetaDataSubscriber implements MetaDataSubscriber {
         // 只是把跟dubbo相关的元数据存放到内存中
         if (RpcTypeEnum.DUBBO.getName().equals(metaData.getRpcType())) {
             MetaData exist = META_DATA.get(metaData.getPath());
+            // 如果当前的dubbo路径不存在，则需要初始化服务引用
             if (Objects.isNull(META_DATA.get(metaData.getPath())) || Objects.isNull(ApplicationConfigCache.getInstance().get(metaData.getPath()))) {
                 // The first initialization
+                // 将服务路径与服务引用配置放到应用配置缓存中
                 ApplicationConfigCache.getInstance().initRef(metaData);
             } else {
                 // There are updates, which only support the update of four properties of serviceName rpcExt parameterTypes methodName,
                 // because these four properties will affect the call of Dubbo;
-                if (!metaData.getServiceName().equals(exist.getServiceName())
-                        || !metaData.getRpcExt().equals(exist.getRpcExt())
-                        || !metaData.getParameterTypes().equals(exist.getParameterTypes())
-                        || !metaData.getMethodName().equals(exist.getMethodName())) {
+                // 如果存在，则查看是否存在属性变更的地方，如果存在则要重新build的服务引用
+                if (!Objects.equals(metaData.getServiceName(), exist.getServiceName())
+                        || !Objects.equals(metaData.getRpcExt(), exist.getRpcExt())
+                        || !Objects.equals(metaData.getParameterTypes(), exist.getParameterTypes())
+                        || !Objects.equals(metaData.getMethodName(), exist.getMethodName())) {
+                    // 重新构建服务引用并放到应用配置缓存中
                     ApplicationConfigCache.getInstance().build(metaData);
                 }
             }

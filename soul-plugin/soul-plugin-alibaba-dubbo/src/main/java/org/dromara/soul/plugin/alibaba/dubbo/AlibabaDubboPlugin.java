@@ -63,6 +63,7 @@ public class AlibabaDubboPlugin extends AbstractSoulPlugin {
         SoulContext soulContext = exchange.getAttribute(Constants.CONTEXT);
         assert soulContext != null;
         MetaData metaData = exchange.getAttribute(Constants.META_DATA);
+        // 校验：metaData是否有效，方法名&服务名不为空
         if (!checkMetaData(metaData)) {
             assert metaData != null;
             log.error(" path is :{}, meta data have error.... {}", soulContext.getPath(), metaData.toString());
@@ -70,18 +71,22 @@ public class AlibabaDubboPlugin extends AbstractSoulPlugin {
             Object error = SoulResultWrap.error(SoulResultEnum.META_DATA_ERROR.getCode(), SoulResultEnum.META_DATA_ERROR.getMsg(), null);
             return WebFluxResultUtils.result(exchange, error);
         }
+        // 校验：参数类型不为空，则必须要有请求body，不能为空
         if (StringUtils.isNoneBlank(metaData.getParameterTypes()) && StringUtils.isBlank(body)) {
             exchange.getResponse().setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR);
             Object error = SoulResultWrap.error(SoulResultEnum.DUBBO_HAVE_BODY_PARAM.getCode(), SoulResultEnum.DUBBO_HAVE_BODY_PARAM.getMsg(), null);
             return WebFluxResultUtils.result(exchange, error);
         }
+        // 完成dubbo服务调用，泛化调用
         Object result = alibabaDubboProxyService.genericInvoker(body, metaData);
+        // 处理返回结果
         if (Objects.nonNull(result)) {
             exchange.getAttributes().put(Constants.DUBBO_RPC_RESULT, result);
         } else {
             exchange.getAttributes().put(Constants.DUBBO_RPC_RESULT, Constants.DUBBO_RPC_RESULT_EMPTY);
         }
         exchange.getAttributes().put(Constants.CLIENT_RESPONSE_RESULT_TYPE, ResultEnum.SUCCESS.getName());
+        // 继续下一个插件链路
         return chain.execute(exchange);
     }
 

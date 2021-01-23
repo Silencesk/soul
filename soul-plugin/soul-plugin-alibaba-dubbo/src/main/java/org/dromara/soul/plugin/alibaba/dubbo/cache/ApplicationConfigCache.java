@@ -52,7 +52,11 @@ public final class ApplicationConfigCache {
 
     private final int maxCount = 50000;
 
+    /**
+     * 服务引用的缓存
+     */
     private final LoadingCache<String, ReferenceConfig<GenericService>> cache = CacheBuilder.newBuilder()
+            // TODO question 不甚了解这里的缓存逻辑
             .maximumWeight(maxCount)
             .weigher((Weigher<String, ReferenceConfig<GenericService>>) (string, referenceConfig) -> getSize())
             .removalListener(notification -> {
@@ -147,37 +151,53 @@ public final class ApplicationConfigCache {
         String rpcExt = metaData.getRpcExt();
         DubboParamExtInfo dubboParamExtInfo = GsonUtils.getInstance().fromJson(rpcExt, DubboParamExtInfo.class);
         if (Objects.nonNull(dubboParamExtInfo)) {
+            // 版本
             if (StringUtils.isNoneBlank(dubboParamExtInfo.getVersion())) {
                 reference.setVersion(dubboParamExtInfo.getVersion());
             }
+            // 分组
             if (StringUtils.isNoneBlank(dubboParamExtInfo.getGroup())) {
                 reference.setGroup(dubboParamExtInfo.getGroup());
             }
+            // 负载均衡
             if (StringUtils.isNoneBlank(dubboParamExtInfo.getLoadbalance())) {
                 final String loadBalance = dubboParamExtInfo.getLoadbalance();
                 reference.setLoadbalance(buildLoadBalanceName(loadBalance));
             }
+            // url
             if (StringUtils.isNoneBlank(dubboParamExtInfo.getUrl())) {
                 reference.setUrl(dubboParamExtInfo.getUrl());
             }
+            // 超时
             Optional.ofNullable(dubboParamExtInfo.getTimeout()).ifPresent(reference::setTimeout);
+            // 重试
             Optional.ofNullable(dubboParamExtInfo.getRetries()).ifPresent(reference::setRetries);
         }
-        Object obj = reference.get();
-        if (obj != null) {
-            log.info("init aliaba dubbo reference success there meteData is :{}", metaData.toString());
-            cache.put(metaData.getPath(), reference);
+        try {
+            Object obj = reference.get();
+            if (obj != null) {
+                log.info("init alibaba dubbo reference success there meteData is :{}", metaData.toString());
+                // 将请求路径与dubbo服务引入放入应用配置的cache中
+                cache.put(metaData.getPath(), reference);
+            }
+        } catch (Exception e) {
+            log.error("init alibaba dubbo refernce ex:{}", e.getMessage());
         }
+
         return reference;
     }
 
     private String buildLoadBalanceName(final String loadBalance) {
+        // 负载均衡类别
+        // 一致性hash
         if (LoadBalanceEnum.HASH.getName().equals(loadBalance) || "consistenthash".equals(loadBalance)) {
             return "consistenthash";
         }
+        // 轮询
         if (LoadBalanceEnum.ROUND_ROBIN.getName().equals(loadBalance)) {
             return "roundrobin";
         }
+        // 其他
         return loadBalance;
     }
 

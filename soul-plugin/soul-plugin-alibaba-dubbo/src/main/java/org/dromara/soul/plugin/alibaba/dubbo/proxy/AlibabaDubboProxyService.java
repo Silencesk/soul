@@ -59,19 +59,24 @@ public class AlibabaDubboProxyService {
      * @throws SoulException the soul exception
      */
     public Object genericInvoker(final String body, final MetaData metaData) throws SoulException {
+        // 找服务引用配置
         ReferenceConfig<GenericService> reference = ApplicationConfigCache.getInstance().get(metaData.getPath());
+        // 为空则初始化一个服务引用配置
         if (Objects.isNull(reference) || StringUtils.isEmpty(reference.getInterface())) {
             ApplicationConfigCache.getInstance().invalidate(metaData.getPath());
             reference = ApplicationConfigCache.getInstance().initRef(metaData);
         }
+        // 获取服务引用配置中的服务
         GenericService genericService = reference.get();
         try {
+            // 处理dubbo服务的请求参数；为请求参数对；key为参数名数组，value为参数值数组
             Pair<String[], Object[]> pair;
             if (ParamCheckUtils.dubboBodyIsEmpty(body)) {
                 pair = new ImmutablePair<>(new String[]{}, new Object[]{});
             } else {
                 pair = dubboParamResolveService.buildParameter(body, metaData.getParameterTypes());
             }
+            // 完成dubbo服务调用
             return genericService.$invoke(metaData.getMethodName(), pair.getLeft(), pair.getRight());
         } catch (GenericException e) {
             log.error("dubbo invoker have exception", e);
