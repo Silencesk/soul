@@ -57,7 +57,9 @@ public final class DataRefreshFactory {
      * @return the boolean
      */
     public boolean executor(final JsonObject data) {
+        // TODO  question 为什么会用一个奇怪的数组？
         final boolean[] success = {false};
+        // 对于不同的数据类型，去进行数据更新；这里使用了并行流，实现并行更新配置
         ENUM_MAP.values().parallelStream().forEach(dataRefresh -> success[0] = dataRefresh.refresh(data));
         return success[0];
     }

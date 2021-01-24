@@ -76,7 +76,7 @@ public class WebsocketCollector {
         // 收到myself的消息，用于bootstrap初始连接上来的时候，相当于是给admin自己的消息
         // 该消息会同步所有类型的配置数据，给到连上来的这个bootstrap
         // 如果有多台bootstrap同时连接上来，又会怎样？onMessage保证了有序性？这里应该存在并发问题
-        // TODO question
+        // TODO question:
         if (message.equals(DataEventTypeEnum.MYSELF.name())) {
             try {
                 ThreadLocalUtil.put(SESSION_KEY, session);

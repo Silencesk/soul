@@ -56,7 +56,7 @@ public final class ApplicationConfigCache {
      * 服务引用的缓存
      */
     private final LoadingCache<String, ReferenceConfig<GenericService>> cache = CacheBuilder.newBuilder()
-            // TODO question 不甚了解这里的缓存逻辑
+            // TODO question:  不甚了解这里的缓存逻辑
             .maximumWeight(maxCount)
             .weigher((Weigher<String, ReferenceConfig<GenericService>>) (string, referenceConfig) -> getSize())
             .removalListener(notification -> {

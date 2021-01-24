@@ -92,11 +92,14 @@ public abstract class AbstractDataChangedListener implements DataChangedListener
      * @return the configuration data
      */
     public ConfigData<?> fetchConfig(final ConfigGroupEnum groupKey) {
+        // 配置数据的缓存
         ConfigDataCache config = CACHE.get(groupKey.name());
+        // 不同类型则传入对应类型，返回configData
         switch (groupKey) {
             case APP_AUTH:
                 List<AppAuthData> appAuthList = GsonUtils.getGson().fromJson(config.getJson(), new TypeToken<List<AppAuthData>>() {
                 }.getType());
+                // 对于每次的数据更新都有记录cache的md5值，最后更新时间
                 return new ConfigData<>(config.getMd5(), config.getLastModifyTime(), appAuthList);
             case PLUGIN:
                 List<PluginData> pluginList = GsonUtils.getGson().fromJson(config.getJson(), new TypeToken<List<PluginData>>() {

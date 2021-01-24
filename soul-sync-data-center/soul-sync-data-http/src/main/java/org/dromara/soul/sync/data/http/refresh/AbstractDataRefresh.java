@@ -74,8 +74,10 @@ public abstract class AbstractDataRefresh<T> implements DataRefresh {
         JsonObject jsonObject = convert(data);
         if (null != jsonObject) {
             ConfigData<T> result = fromJson(jsonObject);
+            // 判断是否需要更新缓存
             if (this.updateCacheIfNeed(result)) {
                 updated = true;
+                // 更新，不同的数据类型会有不同的更新实现
                 refresh(result.getData());
             }
         }

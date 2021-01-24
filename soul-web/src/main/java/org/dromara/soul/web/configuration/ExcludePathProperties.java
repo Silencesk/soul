@@ -15,33 +15,25 @@
  * limitations under the License.
  */
 
-package org.dromara.soul.admin.page;
+package org.dromara.soul.web.configuration;
 
-import org.junit.Assert;
-import org.junit.Test;
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.List;
 
 /**
- * Test case for {@link PageResultUtils}.
+ * Rule out the url Filter.
  *
  * @author HoldDie
  */
-public final class PageResultUtilsTest {
-
-    @Test
-    public void testEmptyResult() {
-        final PageParameter pageParameter = new PageParameter(1, 10, 0);
-        final CommonPager<String> result = PageResultUtils.result(pageParameter, () -> 0, ArrayList::new);
-        Assert.assertEquals(result.getDataList().size(), 0);
-    }
-
-    @Test
-    public void testResult() {
-        final PageParameter pageParameter = new PageParameter(1, 10, 1);
-        final CommonPager<String> result = PageResultUtils.result(pageParameter, () -> 1,
-            () -> Collections.singletonList("result1"));
-        Assert.assertEquals(result.getDataList().size(), 1);
-    }
+@Getter
+@Setter
+@Component
+@ConfigurationProperties(prefix = "soul.exclude")
+public class ExcludePathProperties {
+    private List<String> paths = new ArrayList<>();
 }

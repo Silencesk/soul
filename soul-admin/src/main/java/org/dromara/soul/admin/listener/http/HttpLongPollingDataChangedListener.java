@@ -17,6 +17,7 @@
 
 package org.dromara.soul.admin.listener.http;
 
+import com.sun.xml.internal.bind.v2.TODO;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -91,6 +92,7 @@ public class HttpLongPollingDataChangedListener extends AbstractDataChangedListe
      */
     public HttpLongPollingDataChangedListener(final HttpSyncProperties httpSyncProperties) {
         this.clients = new ArrayBlockingQueue<>(1024);
+        // 后台定期reload数据库配置数据的线程池
         this.scheduler = new ScheduledThreadPoolExecutor(1,
                 SoulThreadFactory.create("long-polling", true));
         this.httpSyncProperties = httpSyncProperties;
@@ -100,6 +102,7 @@ public class HttpLongPollingDataChangedListener extends AbstractDataChangedListe
     protected void afterInitialize() {
         long syncInterval = httpSyncProperties.getRefreshInterval().toMillis();
         // Periodically check the data for changes and update the cache
+        // 启动这个定时任务线程池，用于reload数据库配置到本地缓存
         scheduler.scheduleWithFixedDelay(() -> {
             log.info("http sync strategy refresh config start.");
             try {
@@ -130,10 +133,12 @@ public class HttpLongPollingDataChangedListener extends AbstractDataChangedListe
     public void doLongPolling(final HttpServletRequest request, final HttpServletResponse response) {
 
         // compare group md5
+        // 根据监听传入的md5与更新时间戳找到变化的配置数据
         List<ConfigGroupEnum> changedGroup = compareChangedGroup(request);
         String clientIp = getRemoteIp(request);
 
         // response immediately.
+        // 如果此次存在变化的配置数据，则直接响应请求，将变化的配置类型返回给soul-bootstrap
         if (CollectionUtils.isNotEmpty(changedGroup)) {
             this.generateResponse(response, changedGroup);
             log.info("send response with the changed group, ip={}, group={}", clientIp, changedGroup);
@@ -141,12 +146,15 @@ public class HttpLongPollingDataChangedListener extends AbstractDataChangedListe
         }
 
         // listen for configuration changed.
+        // 否则将当前请求异步化
         final AsyncContext asyncContext = request.startAsync();
 
         // AsyncContext.settimeout() does not timeout properly, so you have to control it yourself
+        // 不设置超时
         asyncContext.setTimeout(0L);
 
         // block client's thread.
+        // 通过调度线程池去执行监听长轮询任务，这里的execute是立即执行的
         scheduler.execute(new LongPollingClient(asyncContext, clientIp, HttpConstants.SERVER_MAX_HOLD_TIMEOUT));
     }
 
@@ -306,9 +314,16 @@ public class HttpLongPollingDataChangedListener extends AbstractDataChangedListe
 
         @Override
         public void run() {
+            // 遍历当前所有正在长轮询的client，将变更的数据作为此次轮询响应的结果返回给长轮询的client
+            //TODO question 这里是否会存在配置丢失的情况？
+            // 如果两次间隔很近的配置变更过来，第一次配置变更还在返回给client，此时的client并没有重新轮询进来，
+            // 则会导致第二次配置变更没有通知到第一次已通知的client，从而使得某些client节点丢失配置
+            // 在admin是集群的情况下，该数据同步机制可能更不可靠
             for (Iterator<LongPollingClient> iter = clients.iterator(); iter.hasNext();) {
+                // 从长轮询队列中移除client
                 LongPollingClient client = iter.next();
                 iter.remove();
+                // 并将变更的数据返回给长轮询client
                 client.sendResponse(Collections.singletonList(groupKey));
                 log.info("send response with the changed group,ip={}, group={}, changeTime={}", client.ip, groupKey, changeTime);
             }
@@ -357,11 +372,16 @@ public class HttpLongPollingDataChangedListener extends AbstractDataChangedListe
 
         @Override
         public void run() {
+            // 这里并没有立即执行，会将其丢到调度线程池，延迟60s执行
             this.asyncTimeoutFuture = scheduler.schedule(() -> {
+                // 执行时，先将当前长轮询的client从长轮询队列队列中移除
                 clients.remove(LongPollingClient.this);
+                // 检查是否存在变更的配置
                 List<ConfigGroupEnum> changedGroups = compareChangedGroup((HttpServletRequest) asyncContext.getRequest());
+                // 返回结果
                 sendResponse(changedGroups);
             }, timeoutTime, TimeUnit.MILLISECONDS);
+            // 将当前长轮询的client放入长轮询队列中
             clients.add(this);
         }
 
@@ -372,6 +392,8 @@ public class HttpLongPollingDataChangedListener extends AbstractDataChangedListe
          */
         void sendResponse(final List<ConfigGroupEnum> changedGroups) {
             // cancel scheduler
+            // 如果在延迟60s的窗口中，存在配置变更的数据，则会提前结束，把变更的数据给到长轮询client；
+            // 这里的asyncTimeoutFuture便会为空，从而可以取消当前延迟执行的任务
             if (null != asyncTimeoutFuture) {
                 asyncTimeoutFuture.cancel(false);
             }
