@@ -121,24 +121,22 @@ public class WebsocketCollector {
         if (StringUtils.isNotBlank(message)) {
             // 用自身的消息类型Myself代表所有配置类型数据
             if (DataEventTypeEnum.MYSELF == type) {
-                try {
-                    Session session = (Session) ThreadLocalUtil.get(SESSION_KEY);
-                    if (session != null) {
-                        session.getBasicRemote().sendText(message);
-                    }
-                } catch (IOException e) {
-                    log.error("websocket send result is exception: ", e);
+                Session session = (Session) ThreadLocalUtil.get(SESSION_KEY);
+                if (session != null) {
+                    sendMessageBySession(session, message);
                 }
-                return;
+            } else {
+                // 其他消息则遍历所有的websocket请求，依次发送消息；这里有多个session，因soul-admin可能是集群
+                SESSION_SET.forEach(session -> sendMessageBySession(session, message));
             }
-            // 其他消息则遍历所有的websocket请求，依次发送消息；这里有多个session，因soul-admin可能是集群
-            for (Session session : SESSION_SET) {
-                try {
-                    session.getBasicRemote().sendText(message);
-                } catch (IOException e) {
-                    log.error("websocket send result is exception: ", e);
-                }
-            }
+        }
+    }
+
+    private static void sendMessageBySession(final Session session, final String message) {
+        try {
+            session.getBasicRemote().sendText(message);
+        } catch (IOException e) {
+            log.error("websocket send result is exception: ", e);
         }
     }
 }

@@ -41,24 +41,26 @@ public class AlibabaDubboMetaDataSubscriber implements MetaDataSubscriber {
         // 只是把跟dubbo相关的元数据存放到内存中
         if (RpcTypeEnum.DUBBO.getName().equals(metaData.getRpcType())) {
             MetaData exist = META_DATA.get(metaData.getPath());
-            // 如果当前的dubbo路径不存在，则需要初始化服务引用
-            if (Objects.isNull(META_DATA.get(metaData.getPath())) || Objects.isNull(ApplicationConfigCache.getInstance().get(metaData.getPath()))) {
-                // The first initialization
-                // 将服务路径与服务引用配置放到应用配置缓存中
-                ApplicationConfigCache.getInstance().initRef(metaData);
-            } else {
-                // There are updates, which only support the update of four properties of serviceName rpcExt parameterTypes methodName,
-                // because these four properties will affect the call of Dubbo;
-                // 如果存在，则查看是否存在属性变更的地方，如果存在则要重新build的服务引用
-                if (!Objects.equals(metaData.getServiceName(), exist.getServiceName())
-                        || !Objects.equals(metaData.getRpcExt(), exist.getRpcExt())
-                        || !Objects.equals(metaData.getParameterTypes(), exist.getParameterTypes())
-                        || !Objects.equals(metaData.getMethodName(), exist.getMethodName())) {
-                    // 重新构建服务引用并放到应用配置缓存中
-                    ApplicationConfigCache.getInstance().build(metaData);
+            if (Objects.isNull(exist) || Objects.isNull(ApplicationConfigCache.getInstance().get(metaData.getPath()))) {
+                // 如果当前的dubbo路径不存在，则需要初始化服务引用
+                if (Objects.isNull(META_DATA.get(metaData.getPath())) || Objects.isNull(ApplicationConfigCache.getInstance().get(metaData.getPath()))) {
+                    // The first initialization
+                    // 将服务路径与服务引用配置放到应用配置缓存中
+                    ApplicationConfigCache.getInstance().initRef(metaData);
+                } else {
+                    // There are updates, which only support the update of four properties of serviceName rpcExt parameterTypes methodName,
+                    // because these four properties will affect the call of Dubbo;
+                    // 如果存在，则查看是否存在属性变更的地方，如果存在则要重新build的服务引用
+                    if (!Objects.equals(metaData.getServiceName(), exist.getServiceName())
+                            || !Objects.equals(metaData.getRpcExt(), exist.getRpcExt())
+                            || !Objects.equals(metaData.getParameterTypes(), exist.getParameterTypes())
+                            || !Objects.equals(metaData.getMethodName(), exist.getMethodName())) {
+                        // 重新构建服务引用并放到应用配置缓存中
+                        ApplicationConfigCache.getInstance().build(metaData);
+                    }
                 }
+                META_DATA.put(metaData.getPath(), metaData);
             }
-            META_DATA.put(metaData.getPath(), metaData);
         }
     }
 

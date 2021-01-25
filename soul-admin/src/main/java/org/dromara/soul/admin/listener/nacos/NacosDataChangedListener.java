@@ -23,6 +23,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import lombok.SneakyThrows;
 import org.dromara.soul.admin.listener.DataChangedListener;
+import org.dromara.soul.common.constant.NacosPathConstants;
 import org.dromara.soul.common.dto.AppAuthData;
 import org.dromara.soul.common.dto.MetaData;
 import org.dromara.soul.common.dto.PluginData;
@@ -63,95 +64,27 @@ public class NacosDataChangedListener implements DataChangedListener {
 
     private static final Comparator<RuleData> RULE_DATA_COMPARATOR = Comparator.comparing(RuleData::getSort);
 
-    private static final String GROUP = "DEFAULT_GROUP";
-
-    private static final String PLUGIN_DATA_ID = "soul.plugin.json";
-
-    private static final String SELECTOR_DATA_ID = "soul.selector.json";
-
-    private static final String RULE_DATA_ID = "soul.rule.json";
-
-    private static final String AUTH_DATA_ID = "soul.auth.json";
-
-    private static final String META_DATA_ID = "soul.meta.json";
-
-    private static final String EMPTY_CONFIG_DEFAULT_VALUE = "{}";
-
     private final ConfigService configService;
 
     public NacosDataChangedListener(final ConfigService configService) {
         this.configService = configService;
     }
 
-    private void updateAuthMap(final String configInfo) {
-        JsonObject jo = GsonUtils.getInstance().fromJson(configInfo, JsonObject.class);
-        Set<String> set = new HashSet<>(AUTH_MAP.keySet());
-        for (Entry<String, JsonElement> e : jo.entrySet()) {
-            set.remove(e.getKey());
-            AUTH_MAP.put(e.getKey(), GsonUtils.getInstance().fromJson(e.getValue(), AppAuthData.class));
-        }
-        AUTH_MAP.keySet().removeAll(set);
-    }
-
-    private void updatePluginMap(final String configInfo) {
-        JsonObject jo = GsonUtils.getInstance().fromJson(configInfo, JsonObject.class);
-        Set<String> set = new HashSet<>(PLUGIN_MAP.keySet());
-        for (Entry<String, JsonElement> e : jo.entrySet()) {
-            set.remove(e.getKey());
-            PLUGIN_MAP.put(e.getKey(), GsonUtils.getInstance().fromJson(e.getValue(), PluginData.class));
-        }
-        PLUGIN_MAP.keySet().removeAll(set);
-    }
-
-    private void updateSelectorMap(final String configInfo) {
-        JsonObject jo = GsonUtils.getInstance().fromJson(configInfo, JsonObject.class);
-        Set<String> set = new HashSet<>(SELECTOR_MAP.keySet());
-        for (Entry<String, JsonElement> e : jo.entrySet()) {
-            set.remove(e.getKey());
-            List<SelectorData> ls = new ArrayList<>();
-            e.getValue().getAsJsonArray().forEach(je -> ls.add(GsonUtils.getInstance().fromJson(je, SelectorData.class)));
-            SELECTOR_MAP.put(e.getKey(), ls);
-        }
-        SELECTOR_MAP.keySet().removeAll(set);
-    }
-
-    private void updateMetaDataMap(final String configInfo) {
-        JsonObject jo = GsonUtils.getInstance().fromJson(configInfo, JsonObject.class);
-        Set<String> set = new HashSet<>(META_DATA.keySet());
-        for (Entry<String, JsonElement> e : jo.entrySet()) {
-            set.remove(e.getKey());
-            META_DATA.put(e.getKey(), GsonUtils.getInstance().fromJson(e.getValue(), MetaData.class));
-        }
-        META_DATA.keySet().removeAll(set);
-    }
-
-    private void updateRuleMap(final String configInfo) {
-        JsonObject jo = GsonUtils.getInstance().fromJson(configInfo, JsonObject.class);
-        Set<String> set = new HashSet<>(RULE_MAP.keySet());
-        for (Entry<String, JsonElement> e : jo.entrySet()) {
-            set.remove(e.getKey());
-            List<RuleData> ls = new ArrayList<>();
-            e.getValue().getAsJsonArray().forEach(je -> ls.add(GsonUtils.getInstance().fromJson(je, RuleData.class)));
-            RULE_MAP.put(e.getKey(), ls);
-        }
-        RULE_MAP.keySet().removeAll(set);
-    }
-
     @SneakyThrows
     private String getConfig(final String dataId) {
-        String config = configService.getConfig(dataId, GROUP, 6000);
-        return StringUtils.hasLength(config) ? config : EMPTY_CONFIG_DEFAULT_VALUE;
+        String config = configService.getConfig(dataId, NacosPathConstants.GROUP, NacosPathConstants.DEFAULT_TIME_OUT);
+        return StringUtils.hasLength(config) ? config : NacosPathConstants.EMPTY_CONFIG_DEFAULT_VALUE;
     }
 
     @SneakyThrows
     private void publishConfig(final String dataId, final Object data) {
-        configService.publishConfig(dataId, GROUP, GsonUtils.getInstance().toJson(data));
+        configService.publishConfig(dataId, NacosPathConstants.GROUP, GsonUtils.getInstance().toJson(data));
     }
 
     @Override
     @SneakyThrows
     public void onAppAuthChanged(final List<AppAuthData> changed, final DataEventTypeEnum eventType) {
-        updateAuthMap(getConfig(AUTH_DATA_ID));
+        updateAuthMap(getConfig(NacosPathConstants.AUTH_DATA_ID));
         switch (eventType) {
             case DELETE:
                 changed.forEach(appAuth -> AUTH_MAP.remove(appAuth.getAppKey()));
@@ -169,12 +102,12 @@ public class NacosDataChangedListener implements DataChangedListener {
                 changed.forEach(appAuth -> AUTH_MAP.put(appAuth.getAppKey(), appAuth));
                 break;
         }
-        publishConfig(AUTH_DATA_ID, AUTH_MAP);
+        publishConfig(NacosPathConstants.AUTH_DATA_ID, AUTH_MAP);
     }
 
     @Override
     public void onPluginChanged(final List<PluginData> changed, final DataEventTypeEnum eventType) {
-        updatePluginMap(getConfig(PLUGIN_DATA_ID));
+        updatePluginMap(getConfig(NacosPathConstants.PLUGIN_DATA_ID));
         switch (eventType) {
             case DELETE:
                 changed.forEach(plugin -> PLUGIN_MAP.remove(plugin.getName()));
@@ -192,12 +125,12 @@ public class NacosDataChangedListener implements DataChangedListener {
                 changed.forEach(plugin -> PLUGIN_MAP.put(plugin.getName(), plugin));
                 break;
         }
-        publishConfig(PLUGIN_DATA_ID, PLUGIN_MAP);
+        publishConfig(NacosPathConstants.PLUGIN_DATA_ID, PLUGIN_MAP);
     }
 
     @Override
     public void onSelectorChanged(final List<SelectorData> changed, final DataEventTypeEnum eventType) {
-        updateSelectorMap(getConfig(SELECTOR_DATA_ID));
+        updateSelectorMap(getConfig(NacosPathConstants.SELECTOR_DATA_ID));
         switch (eventType) {
             case DELETE:
                 changed.forEach(selector -> {
@@ -212,17 +145,16 @@ public class NacosDataChangedListener implements DataChangedListener {
                 break;
             case REFRESH:
             case MYSELF:
-                Set<String> set = new HashSet<>(SELECTOR_MAP.keySet());
+                SELECTOR_MAP.keySet().removeAll(SELECTOR_MAP.keySet());
                 changed.forEach(selector -> {
-                    set.remove(selector.getPluginName());
                     List<SelectorData> ls = SELECTOR_MAP
                             .getOrDefault(selector.getPluginName(), new ArrayList<>())
                             .stream()
                             .sorted(SELECTOR_DATA_COMPARATOR)
                             .collect(Collectors.toList());
+                    ls.add(selector);
                     SELECTOR_MAP.put(selector.getPluginName(), ls);
                 });
-                SELECTOR_MAP.keySet().removeAll(set);
                 break;
             default:
                 changed.forEach(selector -> {
@@ -237,12 +169,12 @@ public class NacosDataChangedListener implements DataChangedListener {
                 });
                 break;
         }
-        publishConfig(SELECTOR_DATA_ID, SELECTOR_MAP);
+        publishConfig(NacosPathConstants.SELECTOR_DATA_ID, SELECTOR_MAP);
     }
 
     @Override
     public void onMetaDataChanged(final List<MetaData> changed, final DataEventTypeEnum eventType) {
-        updateMetaDataMap(getConfig(META_DATA_ID));
+        updateMetaDataMap(getConfig(NacosPathConstants.META_DATA_ID));
         switch (eventType) {
             case DELETE:
                 changed.forEach(meta -> META_DATA.remove(meta.getPath()));
@@ -268,12 +200,12 @@ public class NacosDataChangedListener implements DataChangedListener {
                 });
                 break;
         }
-        publishConfig(META_DATA_ID, META_DATA);
+        publishConfig(NacosPathConstants.META_DATA_ID, META_DATA);
     }
 
     @Override
     public void onRuleChanged(final List<RuleData> changed, final DataEventTypeEnum eventType) {
-        updateRuleMap(getConfig(RULE_DATA_ID));
+        updateRuleMap(getConfig(NacosPathConstants.RULE_DATA_ID));
         switch (eventType) {
             case DELETE:
                 changed.forEach(rule -> {
@@ -288,17 +220,16 @@ public class NacosDataChangedListener implements DataChangedListener {
                 break;
             case REFRESH:
             case MYSELF:
-                Set<String> set = new HashSet<>(RULE_MAP.keySet());
+                RULE_MAP.keySet().removeAll(RULE_MAP.keySet());
                 changed.forEach(rule -> {
-                    set.remove(rule.getSelectorId());
                     List<RuleData> ls = RULE_MAP
                             .getOrDefault(rule.getSelectorId(), new ArrayList<>())
                             .stream()
                             .sorted(RULE_DATA_COMPARATOR)
                             .collect(Collectors.toList());
+                    ls.add(rule);
                     RULE_MAP.put(rule.getSelectorId(), ls);
                 });
-                RULE_MAP.keySet().removeAll(set);
                 break;
             default:
                 changed.forEach(rule -> {
@@ -313,7 +244,60 @@ public class NacosDataChangedListener implements DataChangedListener {
                 });
                 break;
         }
-
-        publishConfig(RULE_DATA_ID, RULE_MAP);
+        publishConfig(NacosPathConstants.RULE_DATA_ID, RULE_MAP);
+    }
+    
+    private void updateAuthMap(final String configInfo) {
+        JsonObject jo = GsonUtils.getInstance().fromJson(configInfo, JsonObject.class);
+        Set<String> set = new HashSet<>(AUTH_MAP.keySet());
+        for (Entry<String, JsonElement> e : jo.entrySet()) {
+            set.remove(e.getKey());
+            AUTH_MAP.put(e.getKey(), GsonUtils.getInstance().fromJson(e.getValue(), AppAuthData.class));
+        }
+        AUTH_MAP.keySet().removeAll(set);
+    }
+    
+    private void updatePluginMap(final String configInfo) {
+        JsonObject jo = GsonUtils.getInstance().fromJson(configInfo, JsonObject.class);
+        Set<String> set = new HashSet<>(PLUGIN_MAP.keySet());
+        for (Entry<String, JsonElement> e : jo.entrySet()) {
+            set.remove(e.getKey());
+            PLUGIN_MAP.put(e.getKey(), GsonUtils.getInstance().fromJson(e.getValue(), PluginData.class));
+        }
+        PLUGIN_MAP.keySet().removeAll(set);
+    }
+    
+    private void updateSelectorMap(final String configInfo) {
+        JsonObject jo = GsonUtils.getInstance().fromJson(configInfo, JsonObject.class);
+        Set<String> set = new HashSet<>(SELECTOR_MAP.keySet());
+        for (Entry<String, JsonElement> e : jo.entrySet()) {
+            set.remove(e.getKey());
+            List<SelectorData> ls = new ArrayList<>();
+            e.getValue().getAsJsonArray().forEach(je -> ls.add(GsonUtils.getInstance().fromJson(je, SelectorData.class)));
+            SELECTOR_MAP.put(e.getKey(), ls);
+        }
+        SELECTOR_MAP.keySet().removeAll(set);
+    }
+    
+    private void updateMetaDataMap(final String configInfo) {
+        JsonObject jo = GsonUtils.getInstance().fromJson(configInfo, JsonObject.class);
+        Set<String> set = new HashSet<>(META_DATA.keySet());
+        for (Entry<String, JsonElement> e : jo.entrySet()) {
+            set.remove(e.getKey());
+            META_DATA.put(e.getKey(), GsonUtils.getInstance().fromJson(e.getValue(), MetaData.class));
+        }
+        META_DATA.keySet().removeAll(set);
+    }
+    
+    private void updateRuleMap(final String configInfo) {
+        JsonObject jo = GsonUtils.getInstance().fromJson(configInfo, JsonObject.class);
+        Set<String> set = new HashSet<>(RULE_MAP.keySet());
+        for (Entry<String, JsonElement> e : jo.entrySet()) {
+            set.remove(e.getKey());
+            List<RuleData> ls = new ArrayList<>();
+            e.getValue().getAsJsonArray().forEach(je -> ls.add(GsonUtils.getInstance().fromJson(je, RuleData.class)));
+            RULE_MAP.put(e.getKey(), ls);
+        }
+        RULE_MAP.keySet().removeAll(set);
     }
 }
