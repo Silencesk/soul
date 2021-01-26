@@ -82,7 +82,7 @@ public class DataSyncConfiguration {
         }
 
         /**
-         * Zookeeper data init zookeeper data init.
+         * Zookeeper data init.
          *
          * @param zkClient        the zk client
          * @param syncDataService the sync data service
@@ -104,7 +104,7 @@ public class DataSyncConfiguration {
     static class NacosListener {
 
         /**
-         * Data changed listener data changed listener.
+         * Data changed listener.
          *
          * @param configService the config service
          * @return the data changed listener
@@ -116,7 +116,7 @@ public class DataSyncConfiguration {
         }
 
         /**
-         * Nacos data init zookeeper data init.
+         * Nacos data init.
          *
          * @param configService the config service
          * @param syncDataService the sync data service

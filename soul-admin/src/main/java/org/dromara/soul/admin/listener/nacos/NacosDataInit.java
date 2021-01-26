@@ -47,9 +47,11 @@ public class NacosDataInit implements CommandLineRunner {
 
     @Override
     public void run(final String... args) {
+        // 存在三部分的data，plugin & auth & meta
         String pluginDataId = NacosPathConstants.PLUGIN_DATA_ID;
         String authDataId = NacosPathConstants.AUTH_DATA_ID;
         String metaDataId = NacosPathConstants.META_DATA_ID;
+        // 只有当admin的配置数据没有在nacos上存在时，才同步所有数据
         if (dataIdNotExist(pluginDataId) && dataIdNotExist(authDataId) && dataIdNotExist(metaDataId)) {
             syncDataService.syncAll(DataEventTypeEnum.REFRESH);
         }

@@ -107,11 +107,17 @@ public class NacosDataChangedListener implements DataChangedListener {
 
     @Override
     public void onPluginChanged(final List<PluginData> changed, final DataEventTypeEnum eventType) {
+        // 1. 更新加载到内存的数据
+        // 更新策略：将原有内存中的数据清掉，然后将nacos拉回来的数据重新载入到内存
         updatePluginMap(getConfig(NacosPathConstants.PLUGIN_DATA_ID));
+        // 2. 处理此次变更的数据
         switch (eventType) {
+            // 直接将内存中的plugin删除就ok
             case DELETE:
                 changed.forEach(plugin -> PLUGIN_MAP.remove(plugin.getName()));
                 break;
+            // 替换掉内存中的数据，以数据库全量的内容为准
+            // 也就是说，每次的REFRESH或者MYSELF变更，传过来的数据都是当前数据库的全量数据
             case REFRESH:
             case MYSELF:
                 Set<String> set = new HashSet<>(PLUGIN_MAP.keySet());
@@ -121,10 +127,12 @@ public class NacosDataChangedListener implements DataChangedListener {
                 });
                 PLUGIN_MAP.keySet().removeAll(set);
                 break;
+            // 其余则直接add到内存就ok
             default:
                 changed.forEach(plugin -> PLUGIN_MAP.put(plugin.getName(), plugin));
                 break;
         }
+        // 3. 再发布处理完之后的配置给到nacos
         publishConfig(NacosPathConstants.PLUGIN_DATA_ID, PLUGIN_MAP);
     }
 
@@ -258,6 +266,7 @@ public class NacosDataChangedListener implements DataChangedListener {
     }
     
     private void updatePluginMap(final String configInfo) {
+        // 将原有内存中的数据清掉，然后将nacos拉回来的数据重新生成
         JsonObject jo = GsonUtils.getInstance().fromJson(configInfo, JsonObject.class);
         Set<String> set = new HashSet<>(PLUGIN_MAP.keySet());
         for (Entry<String, JsonElement> e : jo.entrySet()) {
