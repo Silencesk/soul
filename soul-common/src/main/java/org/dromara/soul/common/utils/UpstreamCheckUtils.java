@@ -47,6 +47,7 @@ public class UpstreamCheckUtils {
         if (StringUtils.isBlank(url)) {
             return false;
         }
+        // upstream是否为ip，为ip则用ip+port建立socket连接进行探测
         if (checkIP(url)) {
             String[] hostPort;
             if (url.startsWith(HTTP)) {
@@ -57,6 +58,7 @@ public class UpstreamCheckUtils {
             }
             return isHostConnector(hostPort[0], Integer.parseInt(hostPort[1]));
         } else {
+            // 如果不为ip，则直接判断节点host是否可达
             return isHostReachable(url);
         }
     }
@@ -66,6 +68,8 @@ public class UpstreamCheckUtils {
     }
 
     private static boolean isHostConnector(final String host, final int port) {
+        // 通过ip+port，发起socket连接。如果成功，则表明后端节点存活
+        //TODO question 这里没有超时时间设置，如果其中某一个节点连接巨慢，会影响其他节点的探测
         try (Socket socket = new Socket()) {
             socket.connect(new InetSocketAddress(host, port));
         } catch (IOException e) {
@@ -76,6 +80,7 @@ public class UpstreamCheckUtils {
 
     private static boolean isHostReachable(final String host) {
         try {
+            // ip的探测，根据host获取ip
             return InetAddress.getByName(host).isReachable(1000);
         } catch (IOException ignored) {
         }

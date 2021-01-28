@@ -53,25 +53,36 @@ public class DividePlugin extends AbstractSoulPlugin {
 
     @Override
     protected Mono<Void> doExecute(final ServerWebExchange exchange, final SoulPluginChain chain, final SelectorData selector, final RuleData rule) {
+        // context模式
         final SoulContext soulContext = exchange.getAttribute(Constants.CONTEXT);
         assert soulContext != null;
+        // 获取分流规则的处理
         final DivideRuleHandle ruleHandle = GsonUtils.getInstance().fromJson(rule.getHandle(), DivideRuleHandle.class);
+        // 根据当前选择器获取到后台节点list
+        // TODO 需分析后台节点获取的实现，会涉及到后台节点的探活，增加活剔除节点
         final List<DivideUpstream> upstreamList = UpstreamCacheManager.getInstance().findUpstreamListBySelectorId(selector.getId());
+        // 如果获取到的后台节点为空，则直接返回
         if (CollectionUtils.isEmpty(upstreamList)) {
             log.error("divide upstream configuration error： {}", rule.toString());
             Object error = SoulResultWrap.error(SoulResultEnum.CANNOT_FIND_URL.getCode(), SoulResultEnum.CANNOT_FIND_URL.getMsg(), null);
             return WebFluxResultUtils.result(exchange, error);
         }
+        // 获取ip
         final String ip = Objects.requireNonNull(exchange.getRequest().getRemoteAddress()).getAddress().getHostAddress();
+        // 根据远程客户端ip获取后台节点，经过负载均衡策略
+        // TODO 需分析负载均衡的实现
         DivideUpstream divideUpstream = LoadBalanceUtils.selector(upstreamList, ruleHandle.getLoadBalance(), ip);
+        // 经过负载均衡策略后，未选择到节点则返回错误
         if (Objects.isNull(divideUpstream)) {
             log.error("divide has no upstream");
             Object error = SoulResultWrap.error(SoulResultEnum.CANNOT_FIND_URL.getCode(), SoulResultEnum.CANNOT_FIND_URL.getMsg(), null);
             return WebFluxResultUtils.result(exchange, error);
         }
         // set the http url
+        // 根据后台节点对象构建服务地址，并将其放于交换器，传递下去，进行转发
         String domain = buildDomain(divideUpstream);
         String realURL = buildRealURL(domain, soulContext, exchange);
+        // 调用的几个关键参数：服务地址 请求参数 超时 重试次数
         exchange.getAttributes().put(Constants.HTTP_URL, realURL);
         // set the http timeout
         exchange.getAttributes().put(Constants.HTTP_TIME_OUT, ruleHandle.getTimeout());
@@ -115,6 +126,7 @@ public class DividePlugin extends AbstractSoulPlugin {
 
     private String buildRealURL(final String domain, final SoulContext soulContext, final ServerWebExchange exchange) {
         String path = domain;
+        // rewrite逻辑
         final String rewriteURI = (String) exchange.getAttributes().get(Constants.REWRITE_URI);
         if (StringUtils.isNoneBlank(rewriteURI)) {
             path = path + rewriteURI;
@@ -124,6 +136,7 @@ public class DividePlugin extends AbstractSoulPlugin {
                 path = path + realUrl;
             }
         }
+        // URL请求参数
         String query = exchange.getRequest().getURI().getQuery();
         if (StringUtils.isNoneBlank(query)) {
             return path + "?" + query;

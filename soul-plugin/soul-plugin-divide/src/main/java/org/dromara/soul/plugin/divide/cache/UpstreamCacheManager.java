@@ -40,8 +40,15 @@ public final class UpstreamCacheManager {
 
     private static final UpstreamCacheManager INSTANCE = new UpstreamCacheManager();
 
+    /**
+     * key -> selectorId   value -> List<DivideUpstream>
+     * 保留所有的后端节点，包括探活时状态为false的节点
+     */
     private static final Map<String, List<DivideUpstream>> UPSTREAM_MAP = Maps.newConcurrentMap();
 
+    /**
+     * 只保留探活是状态为true的节点，是网关负载的有效节点
+     */
     private static final Map<String, List<DivideUpstream>> UPSTREAM_MAP_TEMP = Maps.newConcurrentMap();
 
 
@@ -49,8 +56,10 @@ public final class UpstreamCacheManager {
      * suggest soul.upstream.scheduledTime set 1 SECONDS.
      */
     private UpstreamCacheManager() {
+        // 健康检查属性
         boolean check = Boolean.parseBoolean(System.getProperty("soul.upstream.check", "false"));
         if (check) {
+            // 每次探活调度的间隔时间默认为30s，建议设置为1s，需手设置
             new ScheduledThreadPoolExecutor(1, SoulThreadFactory.create("scheduled-upstream-task", false))
                     .scheduleWithFixedDelay(this::scheduled,
                             30, Integer.parseInt(System.getProperty("soul.upstream.scheduledTime", "30")), TimeUnit.SECONDS);
@@ -91,19 +100,24 @@ public final class UpstreamCacheManager {
      * @param selectorData the selector data
      */
     public void submit(final SelectorData selectorData) {
+        // 提交选择器与后端节点列表的关系
         final List<DivideUpstream> upstreamList = GsonUtils.getInstance().fromList(selectorData.getHandle(), DivideUpstream.class);
         if (null != upstreamList && upstreamList.size() > 0) {
+            // 有选择器有节点
             UPSTREAM_MAP.put(selectorData.getId(), upstreamList);
             UPSTREAM_MAP_TEMP.put(selectorData.getId(), upstreamList);
         } else {
+            // 有选择器无节点的情况
             UPSTREAM_MAP.remove(selectorData.getId());
             UPSTREAM_MAP_TEMP.remove(selectorData.getId());
         }
     }
 
     private void scheduled() {
+        // 循环内存中的upstreams
         if (UPSTREAM_MAP.size() > 0) {
             UPSTREAM_MAP.forEach((k, v) -> {
+                // 健康检查之后留下存活的
                 List<DivideUpstream> result = check(v);
                 if (result.size() > 0) {
                     UPSTREAM_MAP_TEMP.put(k, result);
@@ -116,7 +130,9 @@ public final class UpstreamCacheManager {
 
     private List<DivideUpstream> check(final List<DivideUpstream> upstreamList) {
         List<DivideUpstream> resultList = Lists.newArrayListWithCapacity(upstreamList.size());
+        // 后端节点挨个check
         for (DivideUpstream divideUpstream : upstreamList) {
+            // 探活的方式
             final boolean pass = UpstreamCheckUtils.checkUrl(divideUpstream.getUpstreamUrl());
             if (pass) {
                 if (!divideUpstream.isStatus()) {
@@ -126,6 +142,7 @@ public final class UpstreamCacheManager {
                 }
                 resultList.add(divideUpstream);
             } else {
+                // 将后端节点状态置为false，并打印日志
                 divideUpstream.setStatus(false);
                 log.error("check the url={} is fail ", divideUpstream.getUpstreamUrl());
             }
