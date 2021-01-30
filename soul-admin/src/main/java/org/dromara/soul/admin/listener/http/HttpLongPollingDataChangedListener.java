@@ -22,7 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
-import org.dromara.soul.admin.config.HttpSyncProperties;
+import org.dromara.soul.admin.config.properties.HttpSyncProperties;
 import org.dromara.soul.admin.listener.AbstractDataChangedListener;
 import org.dromara.soul.admin.listener.ConfigDataCache;
 import org.dromara.soul.admin.result.SoulAdminResult;
@@ -131,12 +131,10 @@ public class HttpLongPollingDataChangedListener extends AbstractDataChangedListe
      * @param response the response
      */
     public void doLongPolling(final HttpServletRequest request, final HttpServletResponse response) {
-
         // compare group md5
         // 根据监听传入的md5与更新时间戳找到变化的配置数据
         List<ConfigGroupEnum> changedGroup = compareChangedGroup(request);
         String clientIp = getRemoteIp(request);
-
         // response immediately.
         // 如果此次存在变化的配置数据，则直接响应请求，将变化的配置类型返回给soul-bootstrap
         if (CollectionUtils.isNotEmpty(changedGroup)) {
@@ -144,15 +142,12 @@ public class HttpLongPollingDataChangedListener extends AbstractDataChangedListe
             log.info("send response with the changed group, ip={}, group={}", clientIp, changedGroup);
             return;
         }
-
         // listen for configuration changed.
         // 否则将当前请求异步化
         final AsyncContext asyncContext = request.startAsync();
-
         // AsyncContext.settimeout() does not timeout properly, so you have to control it yourself
         // 不设置超时
         asyncContext.setTimeout(0L);
-
         // block client's thread.
         // 通过调度线程池去执行监听长轮询任务，这里的execute是立即执行的
         scheduler.execute(new LongPollingClient(asyncContext, clientIp, HttpConstants.SERVER_MAX_HOLD_TIMEOUT));
