@@ -52,9 +52,14 @@ public class WebClientResponsePlugin implements SoulPlugin {
      */
     @Override
     public Mono<Void> execute(final ServerWebExchange exchange, final SoulPluginChain chain) {
-        return chain.execute(exchange).then(Mono.defer(() -> {
+        // 先执行插件链
+        return chain.execute(exchange)
+                // then表示插件链处理完成后才执行的逻辑，then里边的逻辑也是异步处理的
+                .then(Mono.defer(() -> {
             ServerHttpResponse response = exchange.getResponse();
+            // 后端节点返回的响应
             ClientResponse clientResponse = exchange.getAttribute(Constants.CLIENT_RESPONSE_ATTR);
+            // 一些服务异常的处理
             if (Objects.isNull(clientResponse)
                     || response.getStatusCode() == HttpStatus.BAD_GATEWAY
                     || response.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR) {
@@ -65,9 +70,11 @@ public class WebClientResponsePlugin implements SoulPlugin {
                 Object error = SoulResultWrap.error(SoulResultEnum.SERVICE_TIMEOUT.getCode(), SoulResultEnum.SERVICE_TIMEOUT.getMsg(), null);
                 return WebFluxResultUtils.result(exchange, error);
             }
+            // 后端节点返回的状态码 cookie header的处理
             response.setStatusCode(clientResponse.statusCode());
             response.getCookies().putAll(clientResponse.cookies());
             response.getHeaders().putAll(clientResponse.headers().asHttpHeaders());
+            // 最后将响应体写入到客户端响应中
             return response.writeWith(clientResponse.body(BodyExtractors.toDataBuffers()));
         }));
     }

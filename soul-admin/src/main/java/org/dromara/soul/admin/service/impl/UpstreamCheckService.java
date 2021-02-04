@@ -97,6 +97,7 @@ public class UpstreamCheckService {
      */
     @PostConstruct
     public void setup() {
+        // 从数据库中获取到所有的后端节点数据，初始逻辑
         PluginDO pluginDO = pluginMapper.selectByName(PluginEnum.DIVIDE.getName());
         if (pluginDO != null) {
             List<SelectorDO> selectorDOList = selectorMapper.findByPluginId(pluginDO.getId());
@@ -107,7 +108,9 @@ public class UpstreamCheckService {
                 }
             }
         }
+        // 如果探活开启，则会执行探活，可配置，默认是开启的
         if (check) {
+            // 开启调度线程池默认每10s执行一次check
             new ScheduledThreadPoolExecutor(Runtime.getRuntime().availableProcessors(), SoulThreadFactory.create("scheduled-upstream-task", false))
                     .scheduleWithFixedDelay(this::scheduled, 10, scheduledTime, TimeUnit.SECONDS);
         }
@@ -168,6 +171,9 @@ public class UpstreamCheckService {
                 log.error("check the url={} is fail ", divideUpstream.getUpstreamUrl());
             }
         }
+        // 在check完之后，如果发现存活的后端节点数变更，则会将数据库中的selector数据进行更新
+        // 同时发布配置变更的通知给到bootstrap
+        // 这里的探活不会增加新节点，只有可能剔除一些不存活的节点，所以只要存在存活节点数与所有节点不一致的情况，则就发生了变更
         if (successList.size() == upstreamList.size()) {
             return;
         }
@@ -188,11 +194,13 @@ public class UpstreamCheckService {
             PluginDO pluginDO = pluginMapper.selectById(selectorDO.getPluginId());
             String handler = CollectionUtils.isEmpty(upstreams) ? "" : GsonUtils.getInstance().toJson(upstreams);
             selectorDO.setHandle(handler);
+            // admin数据库也会进行后端节点信息的更新，只保留还存活的节点
             selectorMapper.updateSelective(selectorDO);
             if (Objects.nonNull(pluginDO)) {
                 SelectorData selectorData = SelectorDO.transFrom(selectorDO, pluginDO.getName(), conditionDataList);
                 selectorData.setHandle(handler);
                 // publish change event.
+                // 然后将发送配置变更的通知给到boostrap
                 eventPublisher.publishEvent(new DataChangedEvent(ConfigGroupEnum.SELECTOR, DataEventTypeEnum.UPDATE,
                                                                  Collections.singletonList(selectorData)));
             }

@@ -40,21 +40,35 @@ public class HashLoadBalance extends AbstractLoadBalance {
 
     @Override
     public DivideUpstream doSelect(final List<DivideUpstream> upstreamList, final String ip) {
+        // 并发跳表map key->后端server的hash值 value->后端节点
         final ConcurrentSkipListMap<Long, DivideUpstream> treeMap = new ConcurrentSkipListMap<>();
         for (DivideUpstream address : upstreamList) {
+            // 每个实际后端节点会生成5个虚拟节点，用于更细范围的映射，类似于一致性hash
             for (int i = 0; i < VIRTUAL_NODE_NUM; i++) {
+                // 后端server的hash
                 long addressHash = hash("SOUL-" + address.getUpstreamUrl() + "-HASH-" + i);
                 treeMap.put(addressHash, address);
             }
         }
+        // 远程客户端ip的hash
         long hash = hash(String.valueOf(ip));
+        // 如果 请求地址的Hash值 右边存在节点，返回右边第一个
+        // treeMap.tailMap(hash) 会返回所有（key >= hash）的映射集合，同时是有序的。
         SortedMap<Long, DivideUpstream> lastRing = treeMap.tailMap(hash);
+        // 如果找到了，则从找到的entry拿出后端节点
         if (!lastRing.isEmpty()) {
+            // 这里也就是取 url hash 值右边的第一个节点
             return lastRing.get(lastRing.firstKey());
         }
+        // 没找到，则直接取第一个节点兜底
         return treeMap.firstEntry().getValue();
     }
 
+    /**
+     * hash的意思
+     * @param key
+     * @return
+     */
     private static long hash(final String key) {
         // md5 byte
         MessageDigest md5;

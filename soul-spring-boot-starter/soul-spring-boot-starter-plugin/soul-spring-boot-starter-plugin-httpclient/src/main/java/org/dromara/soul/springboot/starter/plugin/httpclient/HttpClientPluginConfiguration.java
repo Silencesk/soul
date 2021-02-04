@@ -70,6 +70,8 @@ public class HttpClientPluginConfiguration {
     @Bean
     public HttpClient httpClient(final HttpClientProperties properties) {
         // configure pool resources
+        // httpClient的初始化，包括连接池（禁用、定长、弹性）、连接超时（默认45s）、
+        // 是否走代理（代理服务器、用户名、密码；）、https
         HttpClientProperties.Pool pool = properties.getPool();
         ConnectionProvider connectionProvider;
         if (pool.getType() == HttpClientProperties.Pool.PoolType.DISABLED) {
@@ -152,7 +154,10 @@ public class HttpClientPluginConfiguration {
          */
         @Bean
         public SoulPlugin webClientPlugin(final ObjectProvider<HttpClient> httpClient) {
+            // 构造webClient，是一个非阻塞、用于执行http请求的响应式的客户端，其底层是Reactor Netty
+            // 类似restTemplate，我们使用时也需要进行构造
             WebClient webClient = WebClient.builder()
+                    // 客户端连接器，传入已预先配置好的httpClient，也就是我们在上面实例化的bean httpClient
                     .clientConnector(new ReactorClientHttpConnector(Objects.requireNonNull(httpClient.getIfAvailable())))
                     .build();
             return new WebClientPlugin(webClient);

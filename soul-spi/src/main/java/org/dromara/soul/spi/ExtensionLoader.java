@@ -42,6 +42,9 @@ public final class ExtensionLoader<T> {
 
     private static final String SOUL_DIRECTORY = "META-INF/soul/";
 
+    /**
+     * 扩展点map
+     */
     private static final Map<Class<?>, ExtensionLoader<?>> LOADERS = new ConcurrentHashMap<>();
 
     private final Class<T> clazz;
@@ -77,9 +80,11 @@ public final class ExtensionLoader<T> {
         if (clazz == null) {
             throw new NullPointerException("extension clazz is null");
         }
+        // assert是否为接口
         if (!clazz.isInterface()) {
             throw new IllegalArgumentException("extension clazz (" + clazz + ") is not interface!");
         }
+        // assert是否有SPI注解
         if (!clazz.isAnnotationPresent(SPI.class)) {
             throw new IllegalArgumentException("extension clazz (" + clazz + ") without @" + SPI.class + " Annotation");
         }
@@ -87,6 +92,7 @@ public final class ExtensionLoader<T> {
         if (extensionLoader != null) {
             return extensionLoader;
         }
+        // 如果扩展点加载器没有实例化，则进行实例化
         LOADERS.putIfAbsent(clazz, new ExtensionLoader<>(clazz));
         return (ExtensionLoader<T>) LOADERS.get(clazz);
     }
@@ -114,6 +120,8 @@ public final class ExtensionLoader<T> {
         if (StringUtils.isBlank(name)) {
             throw new NullPointerException("get join name is null");
         }
+        // 获取单例对应对应扩展类的实例
+        // 为了解决线程安全的问题，为holder模式的单例
         Holder<Object> objectHolder = cachedInstances.get(name);
         if (objectHolder == null) {
             cachedInstances.putIfAbsent(name, new Holder<>());
@@ -124,6 +132,7 @@ public final class ExtensionLoader<T> {
             synchronized (cachedInstances) {
                 value = objectHolder.getValue();
                 if (value == null) {
+                    // 创建扩展类实例
                     value = createExtension(name);
                     objectHolder.setValue(value);
                 }
@@ -134,10 +143,12 @@ public final class ExtensionLoader<T> {
 
     @SuppressWarnings("unchecked")
     private T createExtension(final String name) {
+        // 获取扩展类
         Class<?> aClass = getExtensionClasses().get(name);
         if (aClass == null) {
             throw new IllegalArgumentException("name is error");
         }
+        // 获取扩展类的实例
         Object o = joinInstances.get(aClass);
         if (o == null) {
             try {
@@ -158,6 +169,7 @@ public final class ExtensionLoader<T> {
      * @return the extension classes
      */
     public Map<String, Class<?>> getExtensionClasses() {
+        // 先加载扩展类，并缓存到map中
         Map<String, Class<?>> classes = cachedClasses.getValue();
         if (classes == null) {
             synchronized (cachedClasses) {
@@ -180,6 +192,7 @@ public final class ExtensionLoader<T> {
             }
         }
         Map<String, Class<?>> classes = new HashMap<>(16);
+        // 从soul的目录加载类
         loadDirectory(classes);
         return classes;
     }

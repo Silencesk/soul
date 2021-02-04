@@ -21,7 +21,7 @@ server:
 soul:
   http:
     adminUrl: http://localhost:9095
-    port: 8188
+    port: ${server.port}
     contextPath: /http
     appName: http
     full: false

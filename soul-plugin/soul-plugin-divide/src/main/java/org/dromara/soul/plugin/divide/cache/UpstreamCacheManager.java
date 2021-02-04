@@ -56,7 +56,7 @@ public final class UpstreamCacheManager {
      * suggest soul.upstream.scheduledTime set 1 SECONDS.
      */
     private UpstreamCacheManager() {
-        // 健康检查属性
+        // 健康检查属性，默认为关闭状态
         boolean check = Boolean.parseBoolean(System.getProperty("soul.upstream.check", "false"));
         if (check) {
             // 每次探活调度的间隔时间默认为30s，建议设置为1s，需手设置

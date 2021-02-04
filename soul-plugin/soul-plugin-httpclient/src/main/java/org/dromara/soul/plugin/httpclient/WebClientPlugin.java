@@ -40,6 +40,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import reactor.retry.Backoff;
 import reactor.retry.Retry;
+
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
@@ -65,8 +66,10 @@ public class WebClientPlugin implements SoulPlugin {
 
     @Override
     public Mono<Void> execute(final ServerWebExchange exchange, final SoulPluginChain chain) {
+        // 取出网关上下文
         final SoulContext soulContext = exchange.getAttribute(Constants.CONTEXT);
         assert soulContext != null;
+        // 请求路径
         String urlPath = exchange.getAttribute(Constants.HTTP_URL);
         if (StringUtils.isEmpty(urlPath)) {
             Object error = SoulResultWrap.error(SoulResultEnum.CANNOT_FIND_URL.getCode(), SoulResultEnum.CANNOT_FIND_URL.getMsg(), null);
@@ -75,8 +78,11 @@ public class WebClientPlugin implements SoulPlugin {
         long timeout = (long) Optional.ofNullable(exchange.getAttribute(Constants.HTTP_TIME_OUT)).orElse(3000L);
         int retryTimes = (int) Optional.ofNullable(exchange.getAttribute(Constants.HTTP_RETRY)).orElse(0);
         log.info("The request urlPath is {}, retryTimes is {}", urlPath, retryTimes);
+        // 原始请求的方法类型
         HttpMethod method = HttpMethod.valueOf(exchange.getRequest().getMethodValue());
+        // 请求体的构造
         WebClient.RequestBodySpec requestBodySpec = webClient.method(method).uri(urlPath);
+        // 处理请求体以及发送请求
         return handleRequestBody(requestBodySpec, exchange, timeout, retryTimes, chain);
     }
 
@@ -110,18 +116,27 @@ public class WebClientPlugin implements SoulPlugin {
                                          final long timeout,
                                          final int retryTimes,
                                          final SoulPluginChain chain) {
-        return requestBodySpec.headers(httpHeaders -> {
-            httpHeaders.addAll(exchange.getRequest().getHeaders());
-            httpHeaders.remove(HttpHeaders.HOST);
-        })
+        return requestBodySpec
+                // 请求头
+                .headers(httpHeaders -> {
+                    httpHeaders.addAll(exchange.getRequest().getHeaders());
+                    httpHeaders.remove(HttpHeaders.HOST);
+                })
+                // 请求内容的类型
                 .contentType(buildMediaType(exchange))
+                // 请求body
                 .body(BodyInserters.fromDataBuffers(exchange.getRequest().getBody()))
+                // 执行请求
                 .exchange()
+                // 请求异常时的处理
                 .doOnError(e -> log.error(e.getMessage()))
+                // 超时异常的抛出
                 .timeout(Duration.ofMillis(timeout))
+                // 重试：只有当请求发生连接超时，重试次数，重试算法使用2的指数退让，第一次重试等待200ms，期间最大间隔为20s
                 .retryWhen(Retry.onlyIf(x -> x.exception() instanceof ConnectTimeoutException)
-                    .retryMax(retryTimes)
-                    .backoff(Backoff.exponential(Duration.ofMillis(200), Duration.ofSeconds(20), 2, true)))
+                        .retryMax(retryTimes)
+                        .backoff(Backoff.exponential(Duration.ofMillis(200), Duration.ofSeconds(20), 2, true)))
+                // 将flux -> mono返回
                 .flatMap(e -> doNext(e, exchange, chain));
 
     }
@@ -132,7 +147,9 @@ public class WebClientPlugin implements SoulPlugin {
         } else {
             exchange.getAttributes().put(Constants.CLIENT_RESPONSE_RESULT_TYPE, ResultEnum.ERROR.getName());
         }
+        // 将后端节点返回的响应放到exchange中
         exchange.getAttributes().put(Constants.CLIENT_RESPONSE_ATTR, res);
+        // 继续执行soul插件链
         return chain.execute(exchange);
     }
 }

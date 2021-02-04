@@ -69,6 +69,7 @@ public class NettyHttpClientPlugin implements SoulPlugin {
 
     @Override
     public Mono<Void> execute(final ServerWebExchange exchange, final SoulPluginChain chain) {
+        // 后端服务请求参数的生成
         final SoulContext soulContext = exchange.getAttribute(Constants.CONTEXT);
         assert soulContext != null;
         ServerHttpRequest request = exchange.getRequest();
@@ -82,12 +83,21 @@ public class NettyHttpClientPlugin implements SoulPlugin {
             return WebFluxResultUtils.result(exchange, error);
         }
         log.info("you request, The resulting urlPath is: {}", url);
-        Flux<HttpClientResponse> responseFlux = this.httpClient.headers(headers -> headers.add(httpHeaders))
-                .request(method).uri(url).send((req, nettyOutbound) ->
-                        nettyOutbound.send(request.getBody().map(dataBuffer -> ((NettyDataBuffer) dataBuffer) .getNativeBuffer())))
+        Flux<HttpClientResponse> responseFlux =
+                // 设置请求头
+                this.httpClient.headers(headers -> headers.add(httpHeaders))
+                // 构造requestSender
+                .request(method).uri(url)
+                // 发送请求 nettyOutBound出站的一个处理，即发送请求前的一个处理
+                // 需要将请求体的内容转换为netty的ByteBuf传输出去
+                .send((req, nettyOutbound) -> nettyOutbound.send(request.getBody().map(dataBuffer -> ((NettyDataBuffer) dataBuffer) .getNativeBuffer())))
+                // 将connection提取出Flux<HttpClientResponse>，
                 .responseConnection((res, connection) -> {
+                    // 将后端服务返回的响应结果放到exchange中
                     exchange.getAttributes().put(Constants.CLIENT_RESPONSE_ATTR, res);
+                    // 将connection对象放到exchange中，需要传递给NettyClientResponsePlugin处理
                     exchange.getAttributes().put(Constants.CLIENT_RESPONSE_CONN_ATTR, connection);
+                    // 处理header、cookie、httpStatus
                     ServerHttpResponse response = exchange.getResponse();
                     HttpHeaders headers = new HttpHeaders();
                     res.responseHeaders().forEach(entry -> headers.add(entry.getKey(), entry.getValue()));
@@ -110,11 +120,13 @@ public class NettyHttpClientPlugin implements SoulPlugin {
                 });
         long timeout = (long) Optional.ofNullable(exchange.getAttribute(Constants.HTTP_TIME_OUT)).orElse(3000L);
         Duration duration = Duration.ofMillis(timeout);
-        responseFlux = responseFlux.timeout(duration,
-                Mono.error(new TimeoutException("Response took longer than timeout: " + duration)))
+        responseFlux = responseFlux
+                // 超时
+                .timeout(duration, Mono.error(new TimeoutException("Response took longer than timeout: " + duration)))
+                // 异常的映射
                 .onErrorMap(TimeoutException.class, th -> new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT, th.getMessage(), th));
+        // 继续执行插件链
         return responseFlux.then(chain.execute(exchange));
-
     }
 
     @Override

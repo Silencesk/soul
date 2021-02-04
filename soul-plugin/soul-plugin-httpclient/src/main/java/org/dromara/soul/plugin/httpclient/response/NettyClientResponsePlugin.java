@@ -48,6 +48,7 @@ public class NettyClientResponsePlugin implements SoulPlugin {
 
     @Override
     public Mono<Void> execute(final ServerWebExchange exchange, final SoulPluginChain chain) {
+        // 先执行插件自身的逻辑，为异步执行
         return Mono.defer(() -> {
             Connection connection = exchange.getAttribute(Constants.CLIENT_RESPONSE_CONN_ATTR);
             if (connection == null) {
@@ -60,18 +61,27 @@ public class NettyClientResponsePlugin implements SoulPlugin {
             }
             ServerHttpResponse response = exchange.getResponse();
             NettyDataBufferFactory factory = (NettyDataBufferFactory) response.bufferFactory();
+            // NettyDataBuffer的响应
             final Flux<NettyDataBuffer> body = connection
+                    // 对于client端的connection对象，你响应的处理反而是inbound；
+                    // 必须先配置inbound作为connection的桥梁，否则是无法接收数据的
                     .inbound()
+                    // 接收：转换数据
                     .receive()
+                    // 将内存buffers保留进行复用
                     .retain()
+                    // 将ByteBuf转换为spring中的NettyDataBuffer
                     .map(factory::wrap);
             MediaType contentType = response.getHeaders().getContentType();
+            // 是否为流媒体响应，若是直接返回
             return isStreamingMediaType(contentType)
                     ? response.writeAndFlushWith(body.map(Flux::just))
                     : response.writeWith(body);
 
         })
+                // 执行插件
                 .then(chain.execute(exchange)
+                        //TODO question 成功的情况下怎么没有释放connection
                         .doOnError(throwable -> cleanup(exchange))).doOnCancel(() -> cleanup(exchange));
     }
 
