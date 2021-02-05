@@ -50,13 +50,17 @@ public class GlobalPlugin implements SoulPlugin {
         final ServerHttpRequest request = exchange.getRequest();
         final HttpHeaders headers = request.getHeaders();
         final String upgrade = headers.getFirst("Upgrade");
+        // 构造soul上下文
         SoulContext soulContext;
+        // 非websocket的处理
         if (StringUtils.isBlank(upgrade) || !"websocket".equals(upgrade)) {
             soulContext = builder.build(exchange);
         } else {
+            // websocket的处理
             final MultiValueMap<String, String> queryParams = request.getQueryParams();
             soulContext = transformMap(queryParams);
         }
+        // 将其放置到exchange对象属性中进行传递，
         exchange.getAttributes().put(Constants.CONTEXT, soulContext);
         return chain.execute(exchange);
     }

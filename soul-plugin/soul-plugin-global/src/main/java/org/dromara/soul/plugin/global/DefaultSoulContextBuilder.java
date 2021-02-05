@@ -41,10 +41,13 @@ public class DefaultSoulContextBuilder implements SoulContextBuilder {
     public SoulContext build(final ServerWebExchange exchange) {
         final ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
+        // 从缓存中获取到metaData
         MetaData metaData = MetaDataCache.getInstance().obtain(path);
+        // 原始metaData放到exchange中
         if (Objects.nonNull(metaData) && metaData.getEnabled()) {
             exchange.getAttributes().put(Constants.META_DATA, metaData);
         }
+        // 将metaData转换为SoulContext
         return transform(request, metaData);
     }
     
